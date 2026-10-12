@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Area comitato · La Nostra Città</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+<header class="topbar"><a class="brand" href="/"><span class="brand-mark">✦</span><span>Insieme per Milano<small>Area riservata del comitato</small></span></a><a class="button button-quiet" href="/">Torna alla piattaforma</a></header>
+<main class="section-wrap committee-page"><p class="eyebrow">Supervisione e moderazione</p><h1 class="committee-title">Area comitato</h1><p id="access-message" role="status">Verifica dei permessi…</p><section id="dashboard" class="hidden">
+  <div class="stats-grid" id="stats"></div>
+  <section class="moderation-section"><div class="section-heading"><div><p class="eyebrow">Identità</p><h2>Verifiche in attesa</h2></div></div><div id="verification-list" class="moderation-list"></div></section>
+  <section class="moderation-section"><div class="section-heading"><div><p class="eyebrow">Segnalazioni</p><h2>Controllo contenuti</h2></div></div><div id="moderation-reports" class="moderation-list"></div></section>
+  <section class="moderation-section"><div class="section-heading"><div><p class="eyebrow">Supporto IA</p><h2>Analisi da revisionare</h2></div></div><div id="ai-list" class="moderation-list"></div></section>
+  <section class="moderation-section"><div class="section-heading"><div><p class="eyebrow">Account</p><h2>Gestione utenti</h2></div></div><div id="user-list" class="moderation-list"></div></section>
+</section></main>
+<footer><div class="section-wrap footer-inner"><span>Area riservata — dati visibili ai ruoli autorizzati</span><a href="/">Torna alla piattaforma</a></div></footer>
+<script type="module" src="{{ url_for('static', filename='js/moderation.js') }}"></script>
+</body></html>
