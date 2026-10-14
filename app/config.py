@@ -12,7 +12,7 @@ class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "development-only-change-this-secret-before-deploying")
     SESSION_TYPE = os.getenv("SESSION_TYPE", "filesystem")
     REDIS_URL = os.getenv("REDIS_URL", "")
-    RATELIMIT_STORAGE_URI = os.getenv("REDIS_URL", "memory://")
+    RATELIMIT_STORAGE_URI = os.getenv("RATELIMIT_STORAGE_URI", "memory://")
     SESSION_FILE_DIR = os.getenv("SESSION_FILE_DIR", str(ROOT / "instance" / "flask_sessions"))
     SESSION_PERMANENT = True
     SESSION_USE_SIGNER = True
