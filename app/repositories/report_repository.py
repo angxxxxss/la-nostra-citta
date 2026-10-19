@@ -1,7 +1,7 @@
 """Query di lettura per segnalazioni; i valori ricevuti arrivano sempre come parametri SQL."""
 
 
-def fetch_report(cursor, report_id):
+def fetch_report(cursor, report_id, viewer_id=None):
     cursor.execute("""SELECT s.id_segnalazione,s.titolo,s.descrizione,s.data_creazione,
         s.latitudine,s.longitudine,s.id_utente,s.stato_pubblicazione,st.nome AS stato,
         l.indirizzo,q.nome AS quartiere,u.nome,u.cognome
@@ -17,9 +17,14 @@ def fetch_report(cursor, report_id):
     item["categorie"] = cursor.fetchall()
     cursor.execute("SELECT tipo,COUNT(*) AS totale FROM sostegno WHERE id_segnalazione=%s GROUP BY tipo", (report_id,))
     item["sostegni"] = {row["tipo"]: row["totale"] for row in cursor.fetchall()}
+    item["sostegni_utente"] = []
+    if viewer_id is not None:
+        cursor.execute("SELECT tipo FROM sostegno WHERE id_segnalazione=%s AND id_utente=%s", (report_id, viewer_id))
+        item["sostegni_utente"] = [row["tipo"] for row in cursor.fetchall()]
     return item
 
 
 def fetch_account_status(cursor, user_id):
     cursor.execute("SELECT stato_verifica,stato_account FROM utente WHERE id_utente=%s", (user_id,))
     return cursor.fetchone()
+
