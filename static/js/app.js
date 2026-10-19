@@ -21,7 +21,21 @@ async function loadLookups() {
 function initMap() {
   if (!window.L) return;
   map = L.map("city-map").setView([45.4642, 9.19], 11);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap" }).addTo(map);
+  const cartoLayer = L.tileLayer(
+    "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+    { subdomains: "abcd", maxZoom: 20, attribution: "&copy; OpenStreetMap contributors &copy; CARTO" }
+  );
+  let fallbackEnabled = false;
+  cartoLayer.on("tileerror", () => {
+    if (fallbackEnabled) return;
+    fallbackEnabled = true;
+    map.removeLayer(cartoLayer);
+    L.tileLayer(
+      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      { maxZoom: 19, attribution: "&copy; OpenStreetMap contributors" }
+    ).addTo(map);
+  });
+  cartoLayer.addTo(map);
   markers = L.layerGroup().addTo(map);
 }
 
