@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Segnalazioni e priorità urbane raccolte dai cittadini di Milano.">
   <title>La Nostra Città, Il Nostro Futuro</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css" crossorigin="">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 </head>
 <body>
@@ -36,13 +36,13 @@
     <div class="section-heading"><div><p class="eyebrow">La voce dei quartieri</p><h2>Segnalazioni recenti</h2></div><div class="filters"><label class="sr-only" for="filter-neighborhood">Filtra per quartiere</label><select id="filter-neighborhood"><option value="">Tutti i quartieri</option></select><select id="filter-category"><option value="">Tutte le categorie</option></select><input id="search-reports" type="search" placeholder="Cerca una segnalazione" aria-label="Cerca una segnalazione"></div></div>
     <div id="report-list" class="report-grid" aria-live="polite"><p>Caricamento delle segnalazioni…</p></div>
   </section>
-  <section class="section-wrap map-panel" id="mappa"><div class="section-heading"><div><p class="eyebrow">Vicino a te</p><h2>Problemi sulla mappa</h2></div><p>La posizione viene mostrata solo quando è stata inserita o ricavata dai metadati della foto.</p></div><div id="city-map" role="application" aria-label="Mappa delle segnalazioni"></div></section>
+  <section class="section-wrap map-panel" id="mappa"><div class="section-heading"><div><p class="eyebrow">Vicino a te</p><h2>Problemi sulla mappa</h2></div><p>La posizione viene mostrata solo quando è stata inserita o ricavata dai metadati della foto.</p></div><div id="city-map" role="application" aria-label="Mappa delle segnalazioni"></div><p id="map-status" class="map-status" role="status" aria-live="polite"></p></section>
   <section class="section-wrap priority-panel" id="priorita"><div class="section-heading"><div><p class="eyebrow">Dal consenso all'azione</p><h2>Priorità condivise</h2></div><p>Classifica per sostegno espresso dalle persone verificate.</p></div><ol id="priority-list" class="priority-list"></ol></section>
   <section class="section-wrap account-panel" id="verifica-identita"><div><p class="eyebrow">Account verificato</p><h2>Conferma la tua identità</h2><p>Il comitato controlla i documenti caricati. I file restano privati e sono accessibili solo ai moderatori autorizzati.</p></div><form id="identity-form"><label>Metodo<select name="tipo_verifica"><option>Carta identita</option><option>SPID</option><option>CIE</option></select></label><div class="form-grid"><label>Fronte<input name="fronte" type="file" accept="image/jpeg,image/png,application/pdf"></label><label>Retro<input name="retro" type="file" accept="image/jpeg,image/png,application/pdf"></label></div><button class="button button-dark" type="submit">Invia per verifica</button><p id="identity-message" role="status" aria-live="polite"></p></form></section>
 </main>
 <dialog id="auth-dialog" aria-labelledby="auth-title"><button class="dialog-close" id="close-auth" aria-label="Chiudi">×</button><p class="eyebrow">Benvenuto</p><h2 id="auth-title">Accedi alla piattaforma</h2><div class="tabs"><button class="tab active" data-mode="login">Accedi</button><button class="tab" data-mode="register">Crea account</button></div><form id="auth-form"><div id="register-fields" class="hidden"><label>Nome<input name="nome" maxlength="50"></label><label>Cognome<input name="cognome" maxlength="50"></label><label>Codice fiscale<input name="codice_fiscale" maxlength="16" autocomplete="off"></label><label>Indirizzo di residenza<input name="indirizzo" maxlength="150"></label><label>Quartiere di residenza<select id="register-neighborhood" name="id_quartiere"><option value="">Facoltativo</option></select></label></div><label>E-mail<input name="email" type="email" autocomplete="email" required></label><label>Password<input name="password" type="password" minlength="12" autocomplete="current-password" required></label><button class="button button-dark" type="submit" id="auth-submit">Accedi</button><p id="auth-message" class="form-message" role="status" aria-live="polite"></p></form></dialog>
 <footer><div class="section-wrap footer-inner"><span>Insieme per Milano</span><span>Segnalazioni civiche per una città più attenta.</span><a href="/api/health">Stato del servizio</a></div></footer>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.js" crossorigin=""></script>
 <script type="module" src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>
