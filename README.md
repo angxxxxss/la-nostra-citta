@@ -18,7 +18,7 @@ cp .env.example .env
 
 Nel .env inserisci i valori di connessione mostrati dal provider MySQL. Per Aiven, scarica il certificato CA e indica il suo percorso assoluto in DATABASE_SSL_CA; il client verifica il certificato e il nome dell'host quando il campo è compilato. Non inserire il file .env, password o certificati privati in Git.
 
-Crea il database remoto dal pannello del provider, se non esiste. Con MySQL Workbench connettiti all'host remoto, seleziona quel database e applica, nell'ordine, database/schema/schema.sql e database/seeds/initial_data.sql. Il secondo file contiene solo dati di servizio necessari (ruoli, quartieri, stati e categorie); non crea account o segnalazioni dimostrative. Dopo lo schema, esegui anche `database/migrations/001_quartieri_milano.sql` (anche se il database è già esistente): installa/aggiorna in modo idempotente gli 88 quartieri NIL ufficiali di Milano. Non eseguire più volte lo schema su un database già popolato senza prima valutarne l'effetto.
+Crea il database remoto dal pannello del provider, se non esiste. Con MySQL Workbench connettiti all'host remoto, seleziona quel database e applica, nell'ordine, database/schema/schema.sql e database/seeds/initial_data.sql. Attenzione: `database/seeds/initial_data.sql` contiene ancora record dimostrativi, inclusi account, identità, segnalazioni e interazioni; non eseguirlo sul database remoto reale. Per i quartieri esegui `database/migrations/001_quartieri_milano.sql`, anche se il database esiste già: installa/aggiorna in modo idempotente gli 88 NIL ufficiali di Milano. Non eseguire più volte lo schema su un database già popolato senza prima valutarne l'effetto.
 
 Avvia Flask nel Codespace:
 
