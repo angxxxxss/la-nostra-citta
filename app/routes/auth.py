@@ -1,9 +1,7 @@
 from pathlib import Path
 from flask import Blueprint, current_app, jsonify, request, session
 from mysql.connector import IntegrityError
-from flask_limiter.util import get_remote_address
 
-from .. import limiter
 from ..auth import login_required, regenerate_session
 from ..db import get_db
 from ..validators.common import CF_RE, EMAIL_RE, clean_text, json_body
@@ -14,7 +12,6 @@ auth_bp = Blueprint("auth", __name__)
 
 
 @auth_bp.post("/register")
-@limiter.limit("5 per hour", key_func=get_remote_address)
 def register():
     data, error = json_body(("nome", "cognome", "codice_fiscale", "email", "indirizzo", "password"))
     if error:
@@ -57,7 +54,6 @@ def register():
 
 
 @auth_bp.post("/login")
-@limiter.limit("10 per 15 minutes", key_func=get_remote_address)
 def login():
     data, error = json_body(("email", "password"))
     if error:
