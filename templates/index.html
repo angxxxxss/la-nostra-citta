@@ -28,7 +28,7 @@
       <label>Descrizione<textarea name="descrizione" required maxlength="5000" rows="4" placeholder="Spiega il problema e l'intervento utile"></textarea></label>
       <fieldset><legend>Categorie</legend><div id="categories" class="choice-row"></div></fieldset>
       <div class="form-grid"><label>Latitudine, se disponibile<input name="latitudine" type="number" step="any" min="-90" max="90"></label><label>Longitudine, se disponibile<input name="longitudine" type="number" step="any" min="-180" max="180"></label></div>
-      <label>Foto o video (massimo 5 file)<input name="allegati" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" required multiple><small>Massimo 20 MB per richiesta. I file vengono controllati dal server.</small></label>
+      <label>Foto o video (massimo 5 file)<input name="allegati" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" required multiple><small>Massimo 20 MB per richiesta. I file vengono controllati dal server.</small><small id="selected-media" aria-live="polite"></small></label>
       <div class="form-actions"><button class="button" type="submit">Pubblica segnalazione <span aria-hidden="true">→</span></button><p id="report-message" class="form-message" role="status" aria-live="polite"></p></div>
     </form>
   </section>
@@ -46,3 +46,4 @@
 <script type="module" src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>
+
