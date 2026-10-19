@@ -18,7 +18,7 @@ cp .env.example .env
 
 Nel .env inserisci i valori di connessione mostrati dal provider MySQL. Per Aiven, scarica il certificato CA e indica il suo percorso assoluto in DATABASE_SSL_CA; il client verifica il certificato e il nome dell'host quando il campo è compilato. Non inserire il file .env, password o certificati privati in Git.
 
-Crea il database remoto dal pannello del provider, se non esiste. Con MySQL Workbench connettiti all'host remoto, seleziona quel database e applica, nell'ordine, database/schema/schema.sql e database/seeds/initial_data.sql. Il secondo file contiene solo dati di servizio necessari (ruoli, quartieri, stati e categorie); non crea account o segnalazioni dimostrative. Non eseguire più volte lo schema su un database già popolato senza prima valutarne l'effetto.
+Crea il database remoto dal pannello del provider, se non esiste. Con MySQL Workbench connettiti all'host remoto, seleziona quel database e applica, nell'ordine, database/schema/schema.sql e database/migrations/001_application_schema.sql. La migrazione applicativa crea le tabelle lowercase richieste dal codice e lascia intatte eventuali tabelle legacy con nomi maiuscoli. I seed di servizio per ruoli, quartieri, stati e categorie sono inclusi nella migrazione; non vengono creati account o segnalazioni dimostrative. Non eseguire più volte lo schema su un database già popolato senza prima valutarne l'effetto.
 
 Avvia Flask nel Codespace:
 

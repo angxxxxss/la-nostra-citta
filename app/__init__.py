@@ -8,7 +8,7 @@ from flask_wtf.csrf import CSRFError, CSRFProtect, generate_csrf
 from werkzeug.exceptions import HTTPException
 
 from .config import Config
-from .db import close_db
+from .db import close_db, get_db
 
 csrf = CSRFProtect()
 session_ext = Session()
@@ -73,6 +73,7 @@ def create_app(test_config=None):
         try:
             with get_db().cursor() as cursor:
                 cursor.execute("SELECT 1")
+                cursor.fetchone()
             return jsonify({"status": "ok", "database": "connected"})
         except Exception:
             return jsonify({"status": "degraded", "database": "unavailable"}), 503
@@ -95,7 +96,7 @@ def create_app(test_config=None):
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         response.headers.setdefault("X-Frame-Options", "DENY")
-        response.headers.setdefault("Content-Security-Policy", "default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' https://unpkg.com 'unsafe-inline'; img-src 'self' data: blob: https://*.tile.openstreetmap.org; media-src 'self'; connect-src 'self' https://unpkg.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'")
+        response.headers.setdefault("Content-Security-Policy", "default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' https://unpkg.com 'unsafe-inline'; img-src 'self' data: blob: https://unpkg.com https://*.tile.openstreetmap.org; media-src 'self'; connect-src 'self' https://unpkg.com https://*.tile.openstreetmap.org; object-src 'none'; base-uri 'self'; frame-ancestors 'none'")
         return response
 
     return app

@@ -2,7 +2,7 @@ from pathlib import Path
 
 from flask import current_app, g
 import mysql.connector
-from mysql.connector import pooling
+from mysql.connector import Error, pooling
 
 _pool = None
 
@@ -52,7 +52,17 @@ def get_pool():
 
 def get_db():
     if "db" not in g:
-        g.db = get_pool().get_connection()
+        connection = get_pool().get_connection()
+        try:
+            connection.ping(reconnect=True, attempts=1, delay=0)
+        except Error:
+            try:
+                connection.close()
+            except Error:
+                pass
+            connection = get_pool().get_connection()
+            connection.ping(reconnect=True, attempts=1, delay=0)
+        g.db = connection
     return g.db
 
 
@@ -61,7 +71,11 @@ def close_db(_error=None):
     if connection is not None:
         if connection.in_transaction:
             connection.rollback()
-        connection.close()
+        try:
+            connection.close()
+        except Error:
+            # A pooled connection can already be closed by the remote provider.
+            pass
 
 
 def reset_pool_for_tests():
