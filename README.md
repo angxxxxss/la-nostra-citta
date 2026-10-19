@@ -2,34 +2,31 @@
 
 Piattaforma web del comitato cittadino **Insieme per Milano** per raccogliere, documentare e ordinare le priorità dei quartieri. Il progetto usa Python/Flask, HTML/CSS/JavaScript vanilla e MySQL 8.
 
-## Avvio locale
+## Avvio con MySQL remoto
 
-Requisiti: Python 3.11+ e MySQL 8.0.16+.
+Requisiti: Python 3.11+ e un database MySQL 8 remoto raggiungibile dal Codespace (per esempio Aiven). L'applicazione non usa SQLite né ripiega su un MySQL locale: host, porta, database e credenziali devono essere configurati nel file .env.
 
-```bash
+Crea l'ambiente Python e installa le dipendenze:
+
+\x60\x60\x60bash
 python -m venv .venv
-# Windows PowerShell: .venv\Scripts\Activate.ps1
-# macOS/Linux: source .venv/bin/activate
+# Windows PowerShell: .venv\\Scripts\\Activate.ps1
+# macOS/Linux o Codespaces: source .venv/bin/activate
 python -m pip install -r requirements.txt
-# Windows PowerShell: Copy-Item .env.example .env
-# macOS/Linux: cp .env.example .env
-```
+cp .env.example .env
+\x60\x60\x60
 
-Imposta in `.env` credenziali MySQL locali, `SECRET_KEY` casuale di almeno 32 caratteri e `DATABASE_NAME=la_nostra_citta`. In produzione configura anche Redis e `SESSION_COOKIE_SECURE=true`. Crea il database applicando gli script nell'ordine seguente:
+Nel .env inserisci i valori di connessione mostrati dal provider MySQL. Per Aiven, scarica il certificato CA e indica il suo percorso assoluto in DATABASE_SSL_CA; il client verifica il certificato e il nome dell'host quando il campo è compilato. Non inserire il file .env, password o certificati privati in Git.
 
-```bash
-mysql -u root -p -e "CREATE DATABASE la_nostra_citta CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci"
-mysql -u root -p la_nostra_citta < database/schema/schema.sql
-mysql -u root -p la_nostra_citta < database/seeds/initial_data.sql
-```
+Crea il database remoto dal pannello del provider, se non esiste. Con MySQL Workbench connettiti all'host remoto, seleziona quel database e applica, nell'ordine, database/schema/schema.sql e database/seeds/initial_data.sql. Il secondo file contiene solo dati di servizio necessari (ruoli, quartieri, stati e categorie); non crea account o segnalazioni dimostrative. Non eseguire più volte lo schema su un database già popolato senza prima valutarne l'effetto.
 
-Avvia il server di sviluppo:
+Avvia Flask nel Codespace:
 
-```bash
+\x60\x60\x60bash
 flask --app run.py run --debug
-```
+\x60\x60\x60
 
-Apri <http://127.0.0.1:5000>. Non attivare `--debug` in produzione. In produzione usa HTTPS, `FLASK_ENV=production`, `SESSION_COOKIE_SECURE=true`, una `SECRET_KEY` casuale dedicata, `REDIS_URL` per sessioni/rate-limit e uno storage privato persistente per gli upload.
+Apri la porta 5000 dal pannello Ports di Codespaces. Non attivare --debug in produzione. Per la produzione usa HTTPS, una SECRET_KEY casuale, SESSION_COOKIE_SECURE=true e uno storage privato persistente per gli upload.
 
 ## Funzioni presenti
 
