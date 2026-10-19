@@ -22,11 +22,12 @@ class Config:
     PERMANENT_SESSION_LIFETIME = 60 * 60 * 8
     MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH_MB", "20")) * 1024 * 1024
     UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", str(ROOT / "instance" / "uploads"))
-    DATABASE_HOST = os.getenv("DATABASE_HOST", "127.0.0.1")
+    DATABASE_HOST = os.getenv("DATABASE_HOST", "").strip()
     DATABASE_PORT = int(os.getenv("DATABASE_PORT", "3306"))
     DATABASE_NAME = os.getenv("DATABASE_NAME", "la_nostra_citta")
-    DATABASE_USER = os.getenv("DATABASE_USER", "root")
+    DATABASE_USER = os.getenv("DATABASE_USER", "").strip()
     DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD", "")
+    DATABASE_SSL_CA = os.getenv("DATABASE_SSL_CA", "").strip()
     DATABASE_POOL_SIZE = int(os.getenv("DATABASE_POOL_SIZE", "5"))
     DATABASE_TEST_NAME = os.getenv("DATABASE_TEST_NAME", "la_nostra_citta_test")
     WTF_CSRF_TIME_LIMIT = 60 * 60

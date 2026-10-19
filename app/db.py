@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from flask import current_app, g
 import mysql.connector
 from mysql.connector import pooling
@@ -9,18 +11,42 @@ def get_pool():
     global _pool
     if _pool is None:
         cfg = current_app.config
-        _pool = pooling.MySQLConnectionPool(
-            pool_name="la_nostra_citta_pool",
-            pool_size=cfg["DATABASE_POOL_SIZE"],
-            host=cfg["DATABASE_HOST"],
-            port=cfg["DATABASE_PORT"],
-            database=cfg["DATABASE_NAME"],
-            user=cfg["DATABASE_USER"],
-            password=cfg["DATABASE_PASSWORD"],
-            charset="utf8mb4",
-            collation="utf8mb4_0900_ai_ci",
-            autocommit=False,
-        )
+        host = cfg.get("DATABASE_HOST", "").strip()
+        database = cfg.get("DATABASE_NAME", "").strip()
+        user = cfg.get("DATABASE_USER", "").strip()
+        password = cfg.get("DATABASE_PASSWORD", "")
+        if not all((host, database, user, password)):
+            raise RuntimeError(
+                "Configura DATABASE_HOST, DATABASE_NAME, DATABASE_USER e DATABASE_PASSWORD "
+                "nel file .env per collegarti al database MySQL remoto."
+            )
+        if host.lower() in {"localhost", "127.0.0.1", "::1"}:
+            raise RuntimeError(
+                "Il database locale non è supportato: imposta DATABASE_HOST con l'host del MySQL remoto."
+            )
+
+        connection_options = {
+            "pool_name": "la_nostra_citta_pool",
+            "pool_size": cfg["DATABASE_POOL_SIZE"],
+            "host": host,
+            "port": cfg["DATABASE_PORT"],
+            "database": database,
+            "user": user,
+            "password": password,
+            "charset": "utf8mb4",
+            "collation": "utf8mb4_0900_ai_ci",
+            "autocommit": False,
+        }
+        ssl_ca = cfg.get("DATABASE_SSL_CA", "").strip()
+        if ssl_ca:
+            if not Path(ssl_ca).is_file():
+                raise RuntimeError("Il certificato DATABASE_SSL_CA non è stato trovato.")
+            connection_options.update(
+                ssl_ca=ssl_ca,
+                ssl_verify_cert=True,
+                ssl_verify_identity=True,
+            )
+        _pool = pooling.MySQLConnectionPool(**connection_options)
     return _pool
 
 
