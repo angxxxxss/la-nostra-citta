@@ -1,3 +1,10 @@
+-- NIL ufficiali usati nei menu quartiere e nei luoghi delle segnalazioni.
+CREATE TABLE IF NOT EXISTS quartiere (
+    id_quartiere INT AUTO_INCREMENT PRIMARY KEY,
+    nome VARCHAR(150) NOT NULL UNIQUE,
+    attivo BOOLEAN NOT NULL DEFAULT TRUE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- =====================================
 -- 1. RUOLO
 -- =====================================

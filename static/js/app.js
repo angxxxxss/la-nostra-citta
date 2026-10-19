@@ -3,7 +3,8 @@ import { api, initializeCsrf } from "./api.js";
 const $ = (selector) => document.querySelector(selector);
 let authMode = "login";
 let map;
-let markers;
+let mapReady = false;
+let reportFeatures = [];
 const esc = (value = "") => String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 
 async function loadLookups() {
@@ -18,18 +19,65 @@ async function loadLookups() {
   $("#categories").innerHTML = categories.items.map((item) => `<label class="check-pill"><input type="checkbox" name="categorie" value="${item.id_categoria}"><span>${esc(item.nome_categoria)}</span></label>`).join("");
 }
 
+function updateMapMarkers(items) {
+  reportFeatures = items
+    .filter((item) => item.latitudine !== null && item.longitudine !== null)
+    .map((item) => ({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [Number(item.longitudine), Number(item.latitudine)] },
+      properties: { titolo: item.titolo, indirizzo: item.indirizzo }
+    }));
+  const source = mapReady && map.getSource("reports");
+  if (source) source.setData({ type: "FeatureCollection", features: reportFeatures });
+}
+
 function initMap() {
-  if (!window.L) {
-    $("#city-map").textContent = "La mappa non è disponibile. Ricarica la pagina per riprovare.";
+  const status = $("#map-status");
+  if (!window.maplibregl) {
+    if (status) status.textContent = "Libreria della mappa non disponibile.";
     return;
   }
-  map = L.map("city-map").setView([45.4642, 9.19], 11);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap" }).addTo(map);
-  markers = L.layerGroup().addTo(map);
-  map.on("tileerror", () => {
-    $("#city-map").classList.add("map-unavailable");
+  map = new maplibregl.Map({
+    container: "city-map",
+    style: "https://tiles.openfreemap.org/styles/liberty",
+    center: [9.19, 45.4642],
+    zoom: 11,
+    attributionControl: true
   });
-  requestAnimationFrame(() => map.invalidateSize());
+  map.addControl(new maplibregl.NavigationControl(), "top-right");
+  map.on("load", () => {
+    map.addSource("reports", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: reportFeatures }
+    });
+    map.addLayer({
+      id: "report-points",
+      type: "circle",
+      source: "reports",
+      paint: {
+        "circle-radius": 8,
+        "circle-color": "#d5563a",
+        "circle-stroke-color": "#ffffff",
+        "circle-stroke-width": 2
+      }
+    });
+    map.on("click", "report-points", (event) => {
+      const feature = event.features?.[0];
+      if (!feature) return;
+      new maplibregl.Popup()
+        .setLngLat(feature.geometry.coordinates)
+        .setHTML(`<strong>${esc(feature.properties.titolo)}</strong><br>${esc(feature.properties.indirizzo)}`)
+        .addTo(map);
+    });
+    map.on("mouseenter", "report-points", () => { map.getCanvas().style.cursor = "pointer"; });
+    map.on("mouseleave", "report-points", () => { map.getCanvas().style.cursor = ""; });
+    mapReady = true;
+    if (status) status.textContent = "";
+  });
+  map.on("error", (event) => {
+    if (status && !mapReady) status.textContent = "Mappa non disponibile al momento. Riprova tra poco.";
+    console.error("Errore caricamento mappa:", event.error);
+  });
 }
 
 async function loadReports() {
@@ -41,19 +89,7 @@ async function loadReports() {
     const { items } = await api(`/api/segnalazioni?${params}`);
     const list = $("#report-list");
     list.innerHTML = items.length ? items.map((item) => `<article class="report-card"><div class="card-top"><span class="tag">${esc(item.quartiere)}</span><span class="state">${esc(item.stato)}</span></div><h3>${esc(item.titolo)}</h3>${item.allegati.map((a) => a.tipo === "Foto" ? `<img class="report-media" loading="lazy" src="/api/segnalazioni/${item.id_segnalazione}/allegati/${a.id_file}" alt="Foto allegata alla segnalazione ${esc(item.titolo)}">` : `<video class="report-media" controls preload="none"><source src="/api/segnalazioni/${item.id_segnalazione}/allegati/${a.id_file}" type="${esc(a.mime_type)}">Il browser non supporta il video.</video>`).join("")}<p>${esc(item.descrizione)}</p><p class="location">⌖ ${esc(item.indirizzo)}</p><div class="tags">${item.categorie.map((c) => `<span>${esc(c.nome_categoria)}</span>`).join("")}</div><div class="card-bottom"><span>di ${esc(item.nome)} ${esc(item.cognome)}</span><div><button class="text-button support" data-id="${item.id_segnalazione}" data-kind="Sostegno">♡ ${item.sostegni.Sostegno || 0}</button><button class="text-button support" data-id="${item.id_segnalazione}" data-kind="Interesse">◎ ${item.sostegni.Interesse || 0}</button></div></div><details><summary>Commenti e aggiornamenti</summary><div class="status-history" data-history="${item.id_segnalazione}"><p>Caricamento aggiornamenti…</p></div><div class="comments" data-report="${item.id_segnalazione}"><p>Caricamento commenti…</p></div><form class="comment-form" data-report="${item.id_segnalazione}"><label class="sr-only">Scrivi un commento<input name="testo" maxlength="2000" required placeholder="Aggiungi un commento"></label><button class="text-button">Invia</button></form></details></article>`).join("") : `<div class="empty-state"><h3>Ancora nessuna segnalazione</h3><p>Quando la comunità condividerà le prime proposte, appariranno qui.</p></div>`;
-    if (markers) {
-      markers.clearLayers();
-      const locatedItems = items.filter((i) => i.latitudine !== null && i.longitudine !== null);
-      locatedItems.forEach((i) => L.marker([i.latitudine, i.longitudine]).bindPopup(`<strong>${esc(i.titolo)}</strong><br>${esc(i.indirizzo)}`).addTo(markers));
-      if (locatedItems.length === 1) {
-        map.setView([locatedItems[0].latitudine, locatedItems[0].longitudine], 14);
-      } else if (locatedItems.length > 1) {
-        map.fitBounds(L.latLngBounds(locatedItems.map((i) => [i.latitudine, i.longitudine])), { padding: [28, 28], maxZoom: 15 });
-      } else {
-        map.setView([45.4642, 9.19], 11);
-      }
-      map.invalidateSize();
-    }
+    updateMapMarkers(items);
     for (const item of items) { loadComments(item.id_segnalazione); loadHistory(item.id_segnalazione); }
     list.querySelectorAll(".support").forEach((button) => button.addEventListener("click", async () => {
       try { await api(`/api/segnalazioni/${button.dataset.id}/sostegni`, { method: "POST", body: JSON.stringify({ tipo: button.dataset.kind }) }); await loadReports(); await loadPriorities(); }
