@@ -193,10 +193,6 @@ INSERT INTO ruolo (nome_ruolo, descrizione) VALUES
     ('Moderatore', 'Membro del comitato con poteri di moderazione')
 ON DUPLICATE KEY UPDATE descrizione = VALUES(descrizione);
 
-INSERT INTO quartiere (nome) VALUES
-    ('Centro'), ('Navigli'), ('NoLo'), ('Bicocca'), ('Isola')
-ON DUPLICATE KEY UPDATE nome = VALUES(nome);
-
 INSERT INTO stato_segnalazione (nome, descrizione, ordine) VALUES
     ('Ricevuta', 'Segnalazione appena pubblicata', 1),
     ('In valutazione', 'Segnalazione in fase di analisi', 2),

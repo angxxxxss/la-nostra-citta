@@ -95,3 +95,6 @@ INSERT INTO quartiere (nome, attivo) VALUES
 ('Assiano', 1),
 ('Parco Bosco in Città', 1)
 ON DUPLICATE KEY UPDATE attivo=1;
+
+DELETE FROM quartiere
+WHERE nome IN ('Centro', 'Navigli', 'NoLo');
