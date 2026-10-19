@@ -1,5 +1,5 @@
 -- NIL ufficiali usati nei menu quartiere e nei luoghi delle segnalazioni.
-CREATE TABLE IF NOT EXISTS Quartiere (
+CREATE TABLE IF NOT EXISTS quartiere (
     id_quartiere INT AUTO_INCREMENT PRIMARY KEY,
     nome VARCHAR(150) NOT NULL UNIQUE,
     attivo BOOLEAN NOT NULL DEFAULT TRUE
