@@ -15,6 +15,38 @@ from ..repositories.report_repository import fetch_report
 reports_bp = Blueprint("reports", __name__)
 
 
+def save_report_media(files):
+    """Valida e salva i file, eliminando quelli già scritti se uno fallisce."""
+    stored = []
+    current_path = None
+    try:
+        for file in files:
+            mime = validate_report_media(file)
+            current_path = save_private_upload(file, current_app.config["UPLOAD_FOLDER"], "media", lambda f, expected=mime: expected)
+            file_size = Path(current_path).stat().st_size
+            if file_size > current_app.config["MAX_CONTENT_LENGTH"]:
+                raise ValueError("File troppo grande.")
+            digest = hashlib.sha256(Path(current_path).read_bytes()).hexdigest()
+            exif_lat, exif_lon = exif_coordinates(current_path) if mime.startswith("image/") else (None, None)
+            stored.append((current_path, mime, exif_lat, exif_lon, file_size, digest))
+            current_path = None
+    except Exception:
+        if current_path:
+            Path(current_path).unlink(missing_ok=True)
+        for path, *_ in stored:
+            Path(path).unlink(missing_ok=True)
+        raise
+    return stored
+
+
+def insert_report_media(cursor, report_id, stored):
+    ids = []
+    for path, mime, exif_lat, exif_lon, file_size, digest in stored:
+        cursor.execute("INSERT INTO file_multimediale (id_segnalazione,tipo,percorso,mime_type,dimensione,sha256,coordinate_exif) VALUES (%s,%s,%s,%s,%s,%s,%s)", (report_id, "Foto" if mime.startswith("image/") else "Video", path, mime, file_size, digest, json.dumps({"latitudine": exif_lat, "longitudine": exif_lon}) if exif_lat is not None and exif_lon is not None else None))
+        ids.append(cursor.lastrowid)
+    return ids
+
+
 def require_verified():
     user = session.get("user")
     if not user:
@@ -63,15 +95,17 @@ def list_reports():
     with get_db().cursor(dictionary=True) as cursor:
         cursor.execute(query, params)
         ids = [row["id_segnalazione"] for row in cursor.fetchall()]
-        items = [fetch_report(cursor, report_id) for report_id in ids]
+        viewer_id = (session.get("user") or {}).get("id")
+        items = [fetch_report(cursor, report_id, viewer_id) for report_id in ids]
     return jsonify(items=items, page=page, limit=limit)
 
 
 @reports_bp.get("/segnalazioni/priorita")
 def priorities():
     with get_db().cursor(dictionary=True) as cursor:
-        cursor.execute("""SELECT s.id_segnalazione, s.titolo, COUNT(DISTINCT so.id_utente) AS sostenitori,
-            SUM(so.tipo='Interesse') AS interessati FROM segnalazione s LEFT JOIN sostegno so
+        cursor.execute("""SELECT s.id_segnalazione, s.titolo,
+            COALESCE(SUM(so.tipo='Sostegno'),0) AS sostenitori,
+            COALESCE(SUM(so.tipo='Interesse'),0) AS interessati FROM segnalazione s LEFT JOIN sostegno so
             ON so.id_segnalazione=s.id_segnalazione WHERE s.stato_pubblicazione='Pubblicata'
             GROUP BY s.id_segnalazione ORDER BY sostenitori DESC, interessati DESC, s.data_creazione DESC LIMIT 50""")
         return jsonify(items=cursor.fetchall())
@@ -80,7 +114,7 @@ def priorities():
 @reports_bp.get("/segnalazioni/<int:report_id>")
 def get_report(report_id):
     with get_db().cursor(dictionary=True) as cursor:
-        item = fetch_report(cursor, report_id)
+        item = fetch_report(cursor, report_id, (session.get("user") or {}).get("id"))
     if not item or item["stato_pubblicazione"] != "Pubblicata":
         user = session.get("user")
         if not item or not user or (user["id"] != item["id_utente"] and user["role"] not in ("Comitato", "Moderatore")):
@@ -112,16 +146,7 @@ def create_report():
         return jsonify(error={"code": "INVALID_COORDINATES", "message": "Inserisci entrambe le coordinate entro i limiti geografici."}), 400
     stored = []
     try:
-        for file in files:
-            mime = validate_report_media(file)
-            path = save_private_upload(file, current_app.config["UPLOAD_FOLDER"], "media", lambda f, expected=mime: expected)
-            file_size = Path(path).stat().st_size
-            if file_size > current_app.config["MAX_CONTENT_LENGTH"]:
-                Path(path).unlink(missing_ok=True)
-                raise ValueError("File troppo grande.")
-            digest = hashlib.sha256(Path(path).read_bytes()).hexdigest()
-            exif_lat, exif_lon = exif_coordinates(path) if mime.startswith("image/") else (None, None)
-            stored.append((path, mime, exif_lat, exif_lon, file_size, digest))
+        stored = save_report_media(files)
         if lat is None and stored:
             for _, mime, exif_lat, exif_lon, *_ in stored:
                 if mime.startswith("image/") and exif_lat is not None and exif_lon is not None:
@@ -143,8 +168,7 @@ def create_report():
                 raise RuntimeError("Stati iniziali del database non caricati.")
             cursor.execute("INSERT INTO segnalazione (titolo, descrizione, id_utente, id_luogo, id_stato, stato_pubblicazione, latitudine, longitudine) VALUES (%s,%s,%s,%s,%s,'Bozza',%s,%s)", (title, description, session["user"]["id"], place_id, status["id_stato"], lat, lon))
             report_id = cursor.lastrowid
-            for path, mime, exif_lat, exif_lon, file_size, digest in stored:
-                cursor.execute("INSERT INTO file_multimediale (id_segnalazione,tipo,percorso,mime_type,dimensione,sha256,coordinate_exif) VALUES (%s,%s,%s,%s,%s,%s,%s)", (report_id, "Foto" if mime.startswith("image/") else "Video", path, mime, file_size, digest, json.dumps({"latitudine": exif_lat, "longitudine": exif_lon}) if exif_lat is not None and exif_lon is not None else None))
+            insert_report_media(cursor, report_id, stored)
             category_ids = request.form.getlist("categorie", type=int)
             for category_id in set(category_ids):
                 cursor.execute("INSERT IGNORE INTO segnalazione_categoria (id_segnalazione,id_categoria,origine) SELECT %s,id_categoria,'utente' FROM categoria WHERE id_categoria=%s AND attiva=1", (report_id, category_id))
@@ -162,6 +186,49 @@ def create_report():
             Path(path).unlink(missing_ok=True)
         raise
     return jsonify(message="Segnalazione pubblicata.", id_segnalazione=report_id), 201
+
+
+@reports_bp.post("/segnalazioni/<int:report_id>/allegati")
+@login_required
+def add_report_media(report_id):
+    require_verified()
+    files = request.files.getlist("allegati")
+    if not files or any(not file.filename for file in files):
+        return jsonify(error={"code": "ATTACHMENT_REQUIRED", "message": "Scegli almeno una foto o un video."}), 400
+    if len(files) > 5:
+        return jsonify(error={"code": "TOO_MANY_FILES", "message": "Puoi allegare al massimo 5 file per segnalazione."}), 400
+    stored = []
+    connection = None
+    try:
+        stored = save_report_media(files)
+        connection = get_db()
+        connection.start_transaction()
+        with connection.cursor(dictionary=True) as cursor:
+            cursor.execute("SELECT id_utente FROM segnalazione WHERE id_segnalazione=%s AND stato_pubblicazione='Pubblicata' FOR UPDATE", (report_id,))
+            report = cursor.fetchone()
+            if not report or report["id_utente"] != session["user"]["id"]:
+                abort(404, "Segnalazione non trovata o non di tua proprietà.")
+            cursor.execute("SELECT COUNT(*) AS totale FROM file_multimediale WHERE id_segnalazione=%s", (report_id,))
+            if cursor.fetchone()["totale"] + len(stored) > 5:
+                connection.rollback()
+                for path, *_ in stored:
+                    Path(path).unlink(missing_ok=True)
+                return jsonify(error={"code": "TOO_MANY_FILES", "message": "Una segnalazione può contenere al massimo 5 file."}), 400
+            file_ids = insert_report_media(cursor, report_id, stored)
+        connection.commit()
+    except ValueError as error:
+        if connection is not None:
+            connection.rollback()
+        for path, *_ in stored:
+            Path(path).unlink(missing_ok=True)
+        return jsonify(error={"code": "INVALID_ATTACHMENT", "message": str(error)}), 400
+    except Exception:
+        if connection is not None:
+            connection.rollback()
+        for path, *_ in stored:
+            Path(path).unlink(missing_ok=True)
+        raise
+    return jsonify(message="Allegati aggiunti.", file_ids=file_ids), 201
 
 
 @reports_bp.patch("/segnalazioni/<int:report_id>")
@@ -327,3 +394,4 @@ def report_history(report_id):
     with get_db().cursor(dictionary=True) as cursor:
         cursor.execute("SELECT h.data_modifica,h.nota,nuovo.nome AS stato,u.nome,u.cognome FROM storico_stato h JOIN stato_segnalazione nuovo ON nuovo.id_stato=h.id_stato_nuovo JOIN utente u ON u.id_utente=h.id_utente JOIN segnalazione s ON s.id_segnalazione=h.id_segnalazione WHERE h.id_segnalazione=%s AND s.stato_pubblicazione='Pubblicata' ORDER BY h.data_modifica", (report_id,))
         return jsonify(items=cursor.fetchall())
+
