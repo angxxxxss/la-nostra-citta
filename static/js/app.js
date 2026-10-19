@@ -2,10 +2,19 @@ import { api, initializeCsrf } from "./api.js";
 
 const $ = (selector) => document.querySelector(selector);
 let authMode = "login";
+let currentUser = null;
 let map;
 let mapReady = false;
 let reportFeatures = [];
 const esc = (value = "") => String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
+const maxUploadBytes = 20 * 1024 * 1024;
+
+function mediaSelectionError(files, availableSlots) {
+  if (!files.length || files.some((file) => !file.name)) return "Scegli almeno una foto o un video.";
+  if (files.length > availableSlots) return `Puoi aggiungere al massimo ${availableSlots} file.`;
+  if (files.reduce((total, file) => total + file.size, 0) > maxUploadBytes) return "La richiesta supera il limite di 20 MB.";
+  return "";
+}
 
 async function loadLookups() {
   const [neighborhoods, categories] = await Promise.all([api("/api/quartieri"), api("/api/categorie")]);
@@ -80,6 +89,37 @@ function initMap() {
   });
 }
 
+function renderReport(item) {
+  const id = Number(item.id_segnalazione);
+  const voted = new Set(item.sostegni_utente || []);
+  const voteButton = (kind, symbol) => {
+    const active = voted.has(kind);
+    const count = Number(item.sostegni[kind] || 0);
+    return `<button type="button" class="text-button support" data-id="${id}" data-kind="${kind}" aria-pressed="${active}" aria-label="${active ? "Togli" : "Aggiungi"} ${kind.toLowerCase()} alla segnalazione">${symbol} ${count}</button>`;
+  };
+  const media = item.allegati.map((attachment) => attachment.tipo === "Foto"
+    ? `<img class="report-media" loading="lazy" src="/api/segnalazioni/${id}/allegati/${attachment.id_file}" alt="Foto allegata alla segnalazione ${esc(item.titolo)}">`
+    : `<video class="report-media" controls preload="none"><source src="/api/segnalazioni/${id}/allegati/${attachment.id_file}" type="${esc(attachment.mime_type)}">Il browser non supporta il video.</video>`).join("");
+  const availableSlots = Math.max(0, 5 - item.allegati.length);
+  const ownReport = currentUser && Number(currentUser.id) === Number(item.id_utente);
+  const addMedia = ownReport && availableSlots > 0
+    ? `<form class="media-form" data-report="${id}" data-slots="${availableSlots}" enctype="multipart/form-data"><label>Aggiungi foto alla tua segnalazione<input type="file" name="allegati" accept="image/jpeg,image/png,image/webp" multiple required></label><button class="text-button" type="submit">Carica foto</button><p class="form-message" role="status" aria-live="polite"></p></form>`
+    : "";
+  return `<article class="report-card">
+    <div class="card-top"><span class="tag">${esc(item.quartiere)}</span><span class="state">${esc(item.stato)}</span></div>
+    <h3>${esc(item.titolo)}</h3>${media}<p>${esc(item.descrizione)}</p>
+    <p class="location">⌖ ${esc(item.indirizzo)}</p>
+    <div class="tags">${item.categorie.map((category) => `<span>${esc(category.nome_categoria)}</span>`).join("")}</div>
+    <div class="card-bottom"><span>di ${esc(item.nome)} ${esc(item.cognome)}</span><div>${voteButton("Sostegno", "♡")}${voteButton("Interesse", "◎")}</div></div>
+    <details><summary>Commenti e aggiornamenti</summary>
+      <div class="status-history" data-history="${id}"><p>Caricamento aggiornamenti…</p></div>
+      <div class="comments" data-report="${id}"><p>Caricamento commenti…</p></div>
+      <form class="comment-form" data-report="${id}"><label>Scrivi un commento<input name="testo" maxlength="2000" required placeholder="Aggiungi un commento"></label><button class="text-button" type="submit">Invia</button><p class="form-message" role="status" aria-live="polite"></p></form>
+      ${addMedia}
+    </details>
+  </article>`;
+}
+
 async function loadReports() {
   const params = new URLSearchParams();
   if ($("#filter-neighborhood").value) params.set("quartiere", $("#filter-neighborhood").value);
@@ -88,19 +128,46 @@ async function loadReports() {
   try {
     const { items } = await api(`/api/segnalazioni?${params}`);
     const list = $("#report-list");
-    list.innerHTML = items.length ? items.map((item) => `<article class="report-card"><div class="card-top"><span class="tag">${esc(item.quartiere)}</span><span class="state">${esc(item.stato)}</span></div><h3>${esc(item.titolo)}</h3>${item.allegati.map((a) => a.tipo === "Foto" ? `<img class="report-media" loading="lazy" src="/api/segnalazioni/${item.id_segnalazione}/allegati/${a.id_file}" alt="Foto allegata alla segnalazione ${esc(item.titolo)}">` : `<video class="report-media" controls preload="none"><source src="/api/segnalazioni/${item.id_segnalazione}/allegati/${a.id_file}" type="${esc(a.mime_type)}">Il browser non supporta il video.</video>`).join("")}<p>${esc(item.descrizione)}</p><p class="location">⌖ ${esc(item.indirizzo)}</p><div class="tags">${item.categorie.map((c) => `<span>${esc(c.nome_categoria)}</span>`).join("")}</div><div class="card-bottom"><span>di ${esc(item.nome)} ${esc(item.cognome)}</span><div><button class="text-button support" data-id="${item.id_segnalazione}" data-kind="Sostegno">♡ ${item.sostegni.Sostegno || 0}</button><button class="text-button support" data-id="${item.id_segnalazione}" data-kind="Interesse">◎ ${item.sostegni.Interesse || 0}</button></div></div><details><summary>Commenti e aggiornamenti</summary><div class="status-history" data-history="${item.id_segnalazione}"><p>Caricamento aggiornamenti…</p></div><div class="comments" data-report="${item.id_segnalazione}"><p>Caricamento commenti…</p></div><form class="comment-form" data-report="${item.id_segnalazione}"><label class="sr-only">Scrivi un commento<input name="testo" maxlength="2000" required placeholder="Aggiungi un commento"></label><button class="text-button">Invia</button></form></details></article>`).join("") : `<div class="empty-state"><h3>Ancora nessuna segnalazione</h3><p>Quando la comunità condividerà le prime proposte, appariranno qui.</p></div>`;
+    list.innerHTML = items.length ? items.map(renderReport).join("") : `<div class="empty-state"><h3>Ancora nessuna segnalazione</h3><p>Quando la comunità condividerà le prime proposte, appariranno qui.</p></div>`;
     updateMapMarkers(items);
     for (const item of items) { loadComments(item.id_segnalazione); loadHistory(item.id_segnalazione); }
     list.querySelectorAll(".support").forEach((button) => button.addEventListener("click", async () => {
-      try { await api(`/api/segnalazioni/${button.dataset.id}/sostegni`, { method: "POST", body: JSON.stringify({ tipo: button.dataset.kind }) }); await loadReports(); await loadPriorities(); }
-      catch (error) { alert(error.message); }
+      button.disabled = true;
+      const active = button.getAttribute("aria-pressed") === "true";
+      const path = `/api/segnalazioni/${button.dataset.id}/sostegni`;
+      try {
+        if (active) await api(`${path}/${button.dataset.kind}`, { method: "DELETE" });
+        else await api(path, { method: "POST", body: JSON.stringify({ tipo: button.dataset.kind }) });
+        await Promise.all([loadReports(), loadPriorities()]);
+      } catch (error) { alert(error.message); button.disabled = false; }
     }));
     list.querySelectorAll(".comment-form").forEach((form) => form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      try { await api(`/api/segnalazioni/${form.dataset.report}/commenti`, { method: "POST", body: JSON.stringify({ testo: new FormData(form).get("testo") }) }); form.reset(); await loadComments(form.dataset.report); }
-      catch (error) { alert(error.message); }
+      const message = form.querySelector(".form-message");
+      const button = form.querySelector("button");
+      button.disabled = true;
+      try {
+        await api(`/api/segnalazioni/${form.dataset.report}/commenti`, { method: "POST", body: JSON.stringify({ testo: new FormData(form).get("testo") }) });
+        form.reset();
+        await loadComments(form.dataset.report);
+        message.textContent = "Commento pubblicato.";
+      } catch (error) { message.textContent = error.message; }
+      finally { button.disabled = false; }
     }));
-  } catch (error) { $("#report-list").innerHTML = `<p class="error-message">${esc(error.message)}. Controlla la configurazione MySQL.</p>`; }
+    list.querySelectorAll(".media-form").forEach((form) => form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const message = form.querySelector(".form-message");
+      const button = form.querySelector("button");
+      const data = new FormData(form);
+      const validationError = mediaSelectionError(data.getAll("allegati"), Number(form.dataset.slots));
+      if (validationError) { message.textContent = validationError; return; }
+      button.disabled = true;
+      try {
+        await api(`/api/segnalazioni/${form.dataset.report}/allegati`, { method: "POST", body: data });
+        await loadReports();
+      } catch (error) { message.textContent = error.message; button.disabled = false; }
+    }));
+  } catch (error) { $("#report-list").innerHTML = `<p class="error-message">${esc(error.message)}</p>`; }
 }
 
 async function loadComments(reportId) {
@@ -131,10 +198,12 @@ async function loadPriorities() {
 async function refreshUser() {
   try {
     const { user } = await api("/api/auth/me");
+    currentUser = user;
     $("#user-status").textContent = user.verified ? `${user.email} · verificato` : `${user.email} · da verificare`;
     $("#open-auth").classList.add("hidden"); $("#logout").classList.remove("hidden");
     $("#verifica-identita").classList.toggle("hidden", user.verified);
   } catch {
+    currentUser = null;
     $("#user-status").textContent = "Visitatore";
     $("#open-auth").classList.remove("hidden"); $("#logout").classList.add("hidden");
     $("#verifica-identita").classList.add("hidden");
@@ -157,20 +226,26 @@ $("#auth-form").addEventListener("submit", async (event) => {
   try {
     const result = await api(`/api/auth/${authMode === "login" ? "login" : "register"}`, { method: "POST", body: JSON.stringify(data) });
     $("#auth-message").textContent = authMode === "login" ? "Accesso effettuato." : result.message;
-    if (authMode === "login") { await initializeCsrf(); $("#auth-dialog").close(); await refreshUser(); }
+    if (authMode === "login") { await initializeCsrf(); $("#auth-dialog").close(); await refreshUser(); await loadReports(); }
   } catch (error) { $("#auth-message").textContent = error.message; }
 });
 
-$("#logout").addEventListener("click", async () => { try { await api("/api/auth/logout", { method: "POST" }); await initializeCsrf(); await refreshUser(); } catch (error) { alert(error.message); } });
+$("#logout").addEventListener("click", async () => { try { await api("/api/auth/logout", { method: "POST" }); await initializeCsrf(); await refreshUser(); await loadReports(); } catch (error) { alert(error.message); } });
 
 $("#report-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
   const data = new FormData(form);
+  const validationError = mediaSelectionError(data.getAll("allegati"), 5);
+  if (validationError) { $("#report-message").textContent = validationError; return; }
   data.delete("categorie");
   form.querySelectorAll("input[name='categorie']:checked").forEach((input) => data.append("categorie", input.value));
-  try { await api("/api/segnalazioni", { method: "POST", body: data }); $("#report-message").textContent = "Segnalazione pubblicata."; form.reset(); await loadReports(); await loadPriorities(); }
+  try { await api("/api/segnalazioni", { method: "POST", body: data }); $("#report-message").textContent = "Segnalazione pubblicata."; form.reset(); $("#selected-media").textContent = ""; await loadReports(); await loadPriorities(); }
   catch (error) { $("#report-message").textContent = error.message; }
+});
+
+$("#report-form input[name='allegati']").addEventListener("change", (event) => {
+  $("#selected-media").textContent = Array.from(event.target.files).map((file) => file.name).join(", ");
 });
 
 $("#identity-form").addEventListener("submit", async (event) => {
@@ -188,3 +263,4 @@ await initializeCsrf();
 initMap();
 await Promise.allSettled([loadLookups(), refreshUser()]);
 await Promise.all([loadReports(), loadPriorities()]);
+
