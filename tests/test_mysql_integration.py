@@ -15,10 +15,10 @@ def test_duplicate_support_is_rejected_by_database():
     if "test" not in database_name.lower():
         pytest.fail("Il test di integrazione può usare solo un database con 'test' nel nome.")
     connection = mysql.connector.connect(
-        host=os.getenv("DATABASE_HOST", "127.0.0.1"),
-        port=int(os.getenv("DATABASE_PORT", "3306")),
-        user=os.getenv("DATABASE_USER", "root"),
-        password=os.getenv("DATABASE_PASSWORD", ""),
+        host=os.environ["DATABASE_HOST"],
+        port=int(os.environ["DATABASE_PORT"]),
+        user=os.environ["DATABASE_USER"],
+        password=os.environ["DATABASE_PASSWORD"],
         database=database_name,
     )
     cursor = connection.cursor()
